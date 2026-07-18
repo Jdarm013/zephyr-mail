@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00ffcc">
+    <title>ZephyrMail | Inbox</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background-color: rgba(10, 10, 12, 0.95); border-right: 1px solid #00ffcc; display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 15px rgba(0, 255, 204, 0.1); }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.5em; text-align: center; margin-bottom: 40px; text-shadow: 0 0 8px rgba(0, 255, 204, 0.5); letter-spacing: 2px; }
+        .nav-item { padding: 15px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; text-decoration: none; color: #00ffcc; display: block; }
+        .nav-item:hover, .nav-item.active { border: 1px solid #00ffcc; background-color: rgba(0, 255, 204, 0.1); }
+        .logout-btn { margin-top: auto; padding: 15px; background-color: rgba(255, 51, 51, 0.1); color: #ff3333; border: 1px solid #ff3333; text-align: center; cursor: pointer; text-decoration: none; font-weight: bold; transition: all 0.2s; }
+        .logout-btn:hover { background-color: #ff3333; color: #050505; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
+        .main-content { flex-grow: 1; padding: 30px; display: flex; flex-direction: column; overflow-y: auto; background-image: linear-gradient(rgba(0, 255, 204, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 204, 0.02) 1px, transparent 1px); background-size: 40px 40px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+        .module-container { flex-grow: 1; border: 1px solid #333; background-color: rgba(10, 10, 12, 0.8); padding: 20px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { font-family: 'Orbitron', sans-serif; letter-spacing: 1px; color: #555; font-size: 0.8em; }
+        tr:hover { background-color: rgba(0, 255, 204, 0.05); cursor: pointer; }
+
+        /* THREAT SCORE ROW TINTS */
+        tr.threat-low    { background-color: rgba(255, 204, 0, 0.04); border-left: 3px solid #ffcc00; }
+        tr.threat-medium { background-color: rgba(255, 140, 0, 0.06); border-left: 3px solid #ff8c00; }
+        tr.threat-high   { background-color: rgba(255, 60, 0, 0.08);  border-left: 3px solid #ff3c00; }
+        tr.threat-critical { background-color: rgba(255, 0, 0, 0.1); border-left: 3px solid #ff0000; }
+
+        /* RADIATION ICON */
+        .radiation-icon { font-size: 1.1em; margin-right: 4px; cursor: default; }
+        .rad-green    { color: #00ff88; }
+        .rad-yellow   { color: #ffcc00; }
+        .rad-orange   { color: #ff8c00; }
+        .rad-red      { color: #ff3333; filter: drop-shadow(0 0 4px #ff3333); }
+
+        /* EYE ICON */
+        .eye-icon { font-size: 1em; cursor: pointer; color: #555; transition: color 0.2s; margin-left: 6px; }
+        .eye-icon:hover { color: #ff6600; }
+        .eye-icon.has-tracker { color: #ff6600; }
+
+        /* TRACKER FLAG */
+        .tracker-flag { color: #ff6600; font-size: 0.8em; }
+        .threat-flag  { color: #ffcc00; font-weight: bold; font-size: 0.8em; }
+
+        .folder-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .folder-btn { padding: 8px 15px; background-color: transparent; border: 1px solid #333; color: #555; text-decoration: none; font-size: 0.8em; transition: all 0.2s; }
+        .folder-btn:hover, .folder-btn.active { border-color: #00ffcc; color: #00ffcc; background-color: rgba(0, 255, 204, 0.05); }
+
+        .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .pause-btn { padding: 8px 15px; border: 1px solid #ffcc00; color: #ffcc00; background-color: transparent; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-size: 0.8em; transition: all 0.2s; }
+        .pause-btn:hover { background-color: rgba(255, 204, 0, 0.1); }
+        .bulk-trash-btn { padding: 8px 15px; border: 1px solid #ff3333; color: #ff3333; background-color: transparent; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-size: 0.8em; transition: all 0.2s; display: none; }
+        .bulk-trash-btn:hover { background-color: rgba(255, 51, 51, 0.1); }
+        .bulk-count { color: #555; font-size: 0.8em; display: none; }
+
+        .empty-state { color: #555; margin-top: 30px; text-align: center; }
+        .action-btn { padding: 4px 10px; font-size: 0.7em; background-color: transparent; border: 1px solid #333; color: #555; cursor: pointer; transition: all 0.2s; }
+        .action-btn:hover { border-color: #ff3333; color: #ff3333; }
+
+        /* BULK SELECT CHECKBOX */
+        .row-checkbox { cursor: pointer; accent-color: #00ffcc; width: 14px; height: 14px; }
+        .select-all-checkbox { cursor: pointer; accent-color: #00ffcc; width: 14px; height: 14px; }
+
+        /* TRACKER MODAL */
+        .tracker-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .tracker-modal.active { display: flex; }
+        .tracker-box { background-color: #0a0a0c; border: 1px solid #ff6600; padding: 30px; max-width: 400px; width: 100%; }
+        .modal-btn { padding: 10px 20px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; margin-right: 10px; transition: all 0.2s; }
+        .modal-defang { background-color: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; }
+        .modal-defang:hover { background-color: #00ffcc; color: #050505; }
+        .modal-allow { background-color: rgba(255, 102, 0, 0.1); border: 1px solid #ff6600; color: #ff6600; }
+        .modal-allow:hover { background-color: #ff6600; color: #050505; }
+
+        /* TOOLTIPS */
+        [data-tooltip] { position: relative; }
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #0a0a0c;
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 5px 10px;
+            font-size: 0.7em;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 100;
+            letter-spacing: 1px;
+        }
+        [data-tooltip]:hover::after { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">ZephyrMail</div>
+    <a th:href="@{/inbox}"    class="nav-item active" data-tooltip="View your inbox">INBOX</a>
+    <a th:href="@{/compose}"  class="nav-item" data-tooltip="Compose a new message">COMPOSE</a>
+    <a th:href="@{/contacts}" class="nav-item" data-tooltip="Manage your contacts">CONTACTS</a>
+    <a th:href="@{/aliases}"  class="nav-item" data-tooltip="Manage shadow route aliases">ALIASES</a>
+    <a th:href="@{/vault}"    class="nav-item" data-tooltip="View stored attachments">VAULT</a>
+    <a th:href="@{/settings}" class="nav-item" data-tooltip="Account settings and password">SETTINGS</a>
+    <a th:href="@{/logout}"   class="logout-btn" data-tooltip="End your session">TERMINATE SESSION</a>
+</div>
+
+<div class="main-content">
+    <div class="header-bar">
+        <h2>> INBOX: ONLINE</h2>
+        <button class="pause-btn" onclick="togglePause()" id="pauseBtn"
+                data-tooltip="Pause automatic inbox refresh">⏸ PAUSE INBOX</button>
+    </div>
+
+    <div class="folder-bar">
+        <a th:href="@{/inbox/folder/inbox}"  class="folder-btn active" data-tooltip="Received messages">INBOX</a>
+        <a th:href="@{/inbox/folder/sent}"   class="folder-btn" data-tooltip="Messages you sent">SENT</a>
+        <a th:href="@{/inbox/folder/drafts}" class="folder-btn" data-tooltip="Unsent drafts">DRAFTS</a>
+        <a th:href="@{/inbox/folder/spam}"   class="folder-btn" data-tooltip="Spam and filtered messages">SPAM</a>
+        <a th:href="@{/inbox/folder/trash}"  class="folder-btn" data-tooltip="Deleted messages — purged after 30 days">TRASH</a>
+    </div>
+
+    <div class="module-container">
+
+        <div class="toolbar">
+            <button class="bulk-trash-btn" id="bulkTrashBtn"
+                    onclick="bulkTrash()"
+                    data-tooltip="Move selected messages to trash">
+                🗑 TRASH SELECTED
+            </button>
+            <span class="bulk-count" id="bulkCount"></span>
+        </div>
+
+        <div th:if="${emails.empty}" class="empty-state">
+            [NO MESSAGES IN QUEUE]
+        </div>
+
+        <table th:unless="${emails.empty}">
+            <thead>
+            <tr>
+                <th><input type="checkbox" class="select-all-checkbox" id="selectAll"
+                           onchange="toggleSelectAll(this)"
+                           data-tooltip="Select all messages"></th>
+                <th>THREAT</th>
+                <th>FROM</th>
+                <th>SUBJECT</th>
+                <th>RECEIVED</th>
+                <th>FLAGS</th>
+                <th>ACTION</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="email : ${emails}"
+                th:id="'row-' + ${email.id}"
+                th:classappend="${email.threatScore != null and email.threatScore >= 0.75} ? 'threat-critical' :
+                                (${email.threatScore != null and email.threatScore >= 0.5}  ? 'threat-high' :
+                                (${email.threatScore != null and email.threatScore >= 0.25} ? 'threat-medium' :
+                                (${email.threatScore != null and email.threatScore > 0}     ? 'threat-low' : '')))">
+
+                <!-- BULK SELECT -->
+                <td>
+                    <input type="checkbox" class="row-checkbox"
+                           th:value="${email.id}"
+                           onchange="updateBulkBar()">
+                </td>
+
+                <!-- RADIATION ICON -->
+                <td>
+                    <span th:if="${email.threatScore == null or email.threatScore == 0}"
+                          class="radiation-icon rad-green"
+                          data-tooltip="Threat level: NONE">☢</span>
+                    <span th:if="${email.threatScore != null and email.threatScore > 0 and email.threatScore < 0.25}"
+                          class="radiation-icon rad-yellow"
+                          data-tooltip="Threat level: LOW">☢</span>
+                    <span th:if="${email.threatScore != null and email.threatScore >= 0.25 and email.threatScore < 0.5}"
+                          class="radiation-icon rad-orange"
+                          data-tooltip="Threat level: MEDIUM">☢</span>
+                    <span th:if="${email.threatScore != null and email.threatScore >= 0.5 and email.threatScore < 0.75}"
+                          class="radiation-icon rad-red"
+                          data-tooltip="Threat level: HIGH">☢</span>
+                    <span th:if="${email.threatScore != null and email.threatScore >= 0.75}"
+                          class="radiation-icon rad-red"
+                          style="animation: pulse 1s infinite;"
+                          data-tooltip="Threat level: CRITICAL">☢</span>
+                </td>
+
+                <td th:text="${email.senderAddress}">sender@example.com</td>
+                <td th:text="${email.subject}">Subject line</td>
+                <td th:text="${#temporals.format(email.receivedAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+
+                <!-- FLAGS + EYE ICON -->
+                <td>
+                    <span th:if="${email.threatScore != null and email.threatScore > 0}"
+                          class="threat-flag"
+                          data-tooltip="This message has been flagged as suspicious">⚠ SUSPICIOUS</span>
+                    <!-- Eye icon — only shown if tracker was detected -->
+                    <span th:if="${email.trackerDetected}"
+                          class="eye-icon has-tracker"
+                          th:onclick="'showTrackerModal(' + ${email.id} + ')'"
+                          data-tooltip="Tracking pixel detected — click for details">👁</span>
+                    <!-- Eye icon — closed, no tracker -->
+                    <span th:unless="${email.trackerDetected}"
+                          class="eye-icon"
+                          data-tooltip="No tracking pixel detected">👁</span>
+                </td>
+
+                <!-- ACTION -->
+                <td>
+                    <form th:action="@{/api/inbox/trash/{id}(id=${email.id})}" method="POST" style="display:inline;">
+                        <button type="submit" class="action-btn"
+                                data-tooltip="Move this message to trash">TRASH</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TRACKER MODAL -->
+<div class="tracker-modal" id="trackerModal">
+    <div class="tracker-box">
+        <h3 style="color: #ff6600; margin-top: 0;">⚠ TRACKER DETECTED</h3>
+        <p>This email contains an embedded read notification tracker. If you allow it, the sender will know you opened this email.</p>
+        <p style="color: #555; font-size: 0.8em;">ZephyrMail has already neutralized the tracker. Your choice below is for future access only.</p>
+        <button class="modal-btn modal-defang" onclick="defangTracker()">KEEP DEFANGED</button>
+        <button class="modal-btn modal-allow" onclick="allowTracker()">ALLOW TRACKER</button>
+    </div>
+</div>
+
+<script>
+    let inboxPaused = false;
+    let activeTrackerEmailId = null;
+
+    // PAUSE / RESUME
+    function togglePause() {
+        inboxPaused = !inboxPaused;
+        const btn = document.getElementById('pauseBtn');
+        btn.innerText = inboxPaused ? '▶ RESUME INBOX' : '⏸ PAUSE INBOX';
+        btn.style.borderColor = inboxPaused ? '#00ffcc' : '#ffcc00';
+        btn.style.color       = inboxPaused ? '#00ffcc' : '#ffcc00';
+    }
+
+    // TRACKER MODAL
+    function showTrackerModal(emailId) {
+        activeTrackerEmailId = emailId;
+        document.getElementById('trackerModal').classList.add('active');
+    }
+
+    function defangTracker() {
+        document.getElementById('trackerModal').classList.remove('active');
+        activeTrackerEmailId = null;
+    }
+
+    function allowTracker() {
+        document.getElementById('trackerModal').classList.remove('active');
+        activeTrackerEmailId = null;
+    }
+
+    // SELECT ALL
+    function toggleSelectAll(checkbox) {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checkbox.checked);
+        updateBulkBar();
+    }
+
+    // UPDATE BULK TOOLBAR
+    function updateBulkBar() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        const bulkBtn   = document.getElementById('bulkTrashBtn');
+        const bulkCount = document.getElementById('bulkCount');
+        if (checked.length > 0) {
+            bulkBtn.style.display   = 'inline-block';
+            bulkCount.style.display = 'inline';
+            bulkCount.innerText     = checked.length + ' SELECTED';
+        } else {
+            bulkBtn.style.display   = 'none';
+            bulkCount.style.display = 'none';
+            document.getElementById('selectAll').checked = false;
+        }
+    }
+
+    // BULK TRASH
+    function getCsrfToken() {
+        const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    async function bulkTrash() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        const ids = Array.from(checked).map(cb => parseInt(cb.value));
+        if (ids.length === 0) return;
+
+        try {
+            const response = await fetch('/api/inbox/trash/bulk', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken()
+                },
+                body: JSON.stringify(ids)
+            });
+
+            if (response.ok) {
+                ids.forEach(id => {
+                    const row = document.getElementById('row-' + id);
+                    if (row) row.remove();
+                });
+                updateBulkBar();
+                document.getElementById('selectAll').checked = false;
+
+                // Show empty state if no rows left
+                const tbody = document.querySelector('tbody');
+                if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                    document.querySelector('table').style.display = 'none';
+                    document.querySelector('.empty-state') &&
+                    (document.querySelector('.empty-state').style.display = 'block');
+                }
+            }
+        } catch (err) {
+            console.error('Bulk trash failed:', err);
+        }
+    }
+</script>
+
+</body>
+</html>

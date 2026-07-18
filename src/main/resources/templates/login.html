@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00ffcc">
+    <title>ZephyrLink | Authentication</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <style>
+        body {
+            background-color: #050505;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-image: linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            position: relative;
+        }
+
+        #boot-sequence {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #050505;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            font-size: 1.2em;
+        }
+
+        .login-box {
+            background-color: rgba(10, 10, 12, 0.9);
+            border: 1px solid #00ffcc;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+            width: 380px;
+            display: none;
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        h1.logo {
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2em;
+            margin-top: 0;
+            margin-bottom: 30px;
+            color: #00ffcc;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        label {
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            background-color: #0a0a0c;
+            border: 1px solid #333;
+            color: #00ffcc;
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+            transition: border 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #00ffcc;
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 32px;
+            cursor: pointer;
+            font-size: 0.8em;
+            color: #555;
+            user-select: none;
+        }
+        .toggle-password:hover { color: #00ffcc; }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75em;
+            margin-bottom: 25px;
+        }
+
+        .form-options a {
+            color: #00ffcc;
+            text-decoration: none;
+            transition: text-shadow 0.2s;
+        }
+        .form-options a:hover { text-shadow: 0 0 5px #00ffcc; }
+
+        .turnstile-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            filter: invert(1) hue-rotate(130deg);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: rgba(0, 255, 204, 0.1);
+            color: #00ffcc;
+            border: 1px solid #00ffcc;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            letter-spacing: 2px;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background-color: #00ffcc;
+            color: #050505;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.6);
+        }
+
+        .security-warning {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.65em;
+            color: #ff3333;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        .system-footer {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            font-size: 0.75em;
+            color: #555;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            background-color: #00ffcc;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #00ffcc;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .pow-status {
+            text-align: center;
+            font-size: 0.65em;
+            color: #555;
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="boot-sequence"></div>
+
+<div class="login-box" id="main-login">
+    <h1 class="logo">ZephyrMail</h1>
+
+    <form th:action="@{/login}" method="POST" id="loginForm">
+
+        <!-- POW CHALLENGE -->
+        <input type="hidden" id="powChallenge" th:value="${powChallenge}">
+
+        <div class="input-group">
+            <label>Account</label>
+            <input type="text" name="username" id="accountInput" required autocomplete="off">
+        </div>
+
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" name="password" id="passwordInput" required>
+            <span class="toggle-password" onclick="togglePass()">[SHOW]</span>
+        </div>
+
+        <div class="form-options">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="rememberAccount" style="margin-right: 5px;">
+                Remember Account
+            </label>
+            <a href="#">Forgot Password?</a>
+        </div>
+
+        <!-- CLOUDFLARE TURNSTILE -->
+        <div class="turnstile-wrapper">
+            <div class="cf-turnstile"
+                 th:attr="data-sitekey=${turnstileSiteKey}"
+                 data-theme="dark">
+            </div>
+        </div>
+
+        <button type="submit" id="loginBtn">LOGIN</button>
+
+        <div id="powStatus" class="pow-status"></div>
+
+        <div th:if="${param.error}" class="security-warning">
+            [!] AUTHENTICATION FAILED. <span th:text="${param.attempts != null ? param.attempts[0] : '?'}"></span> ATTEMPTS REMAINING.
+        </div>
+
+        <div th:if="${param.locked}" class="security-warning" style="color: #ff0000; text-shadow: 0 0 10px #ff0000; font-size: 0.8em;">
+            [!] IP LOCKED. MAXIMUM ATTEMPTS EXCEEDED.
+        </div>
+
+        <div th:unless="${param.error} or ${param.locked}" class="security-warning" style="color: #555;">
+            [!] RATE LIMIT: 5 ATTEMPTS / 15m LOCKOUT ARMED
+        </div>
+
+        <div style="text-align: center; margin-top: 25px; font-size: 0.75em;">
+            <a href="#" style="color: #555; text-decoration: none; border-bottom: 1px dashed #555; padding-bottom: 2px;">REQUEST ACCESS CREDENTIALS</a>
+        </div>
+    </form>
+</div>
+
+<div class="system-footer" id="footer" style="display: none;">
+    <div><span class="status-dot"></span> SYSTEM STATUS: OPTIMAL</div>
+    <div>ZephyrMail Build v1.0.0-ALPHA | &copy; 2026 ZephyrLink Systems</div>
+</div>
+
+<script>
+    // TOGGLE PASSWORD
+    function togglePass() {
+        const passInput = document.getElementById('passwordInput');
+        const toggleBtn = document.querySelector('.toggle-password');
+        if (passInput.type === 'password') {
+            passInput.type = 'text';
+            toggleBtn.innerText = '[HIDE]';
+        } else {
+            passInput.type = 'password';
+            toggleBtn.innerText = '[SHOW]';
+        }
+    }
+
+    // REMEMBER ACCOUNT
+    const accountInput = document.getElementById('accountInput');
+    const rememberCheck = document.getElementById('rememberAccount');
+    if (localStorage.getItem('zephyrSavedAccount')) {
+        accountInput.value = localStorage.getItem('zephyrSavedAccount');
+        rememberCheck.checked = true;
+    }
+
+    // SHA-256 VIA WEB CRYPTO API
+    async function sha256Hex(message) {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // PROOF OF WORK
+    async function solvePoW(challenge) {
+        const status = document.getElementById('powStatus');
+        status.innerText = '[COMPUTING SECURITY CHALLENGE...]';
+        let nonce = 0;
+        while (true) {
+            const hash = await sha256Hex(challenge + nonce);
+            if (hash.startsWith('0000')) {
+                status.innerText = '[SECURITY CHALLENGE SOLVED]';
+                return { hash, nonce: String(nonce) };
+            }
+            nonce++;
+        }
+    }
+
+    // FORM SUBMIT — solve PoW then attach headers via fetch
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (rememberCheck.checked) {
+            localStorage.setItem('zephyrSavedAccount', accountInput.value);
+        } else {
+            localStorage.removeItem('zephyrSavedAccount');
+        }
+
+        const btn = document.getElementById('loginBtn');
+        btn.innerText = 'VERIFYING...';
+        btn.disabled = true;
+
+        const challenge = document.getElementById('powChallenge').value;
+        const { hash, nonce } = await solvePoW(challenge);
+
+        // GET CSRF TOKEN
+        function getCsrfToken() {
+            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        }
+
+        // GET TURNSTILE TOKEN
+        const turnstileToken = document.querySelector('[name="cf-turnstile-response"]');
+        if (!turnstileToken || !turnstileToken.value) {
+            btn.innerText = 'LOGIN';
+            btn.disabled = false;
+            document.getElementById('powStatus').innerText = '[!] SECURITY CHECK INCOMPLETE';
+            return;
+        }
+
+        const formData = new FormData(this);
+        const params = new URLSearchParams(formData);
+
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-PoW-Hash': hash,
+                    'X-PoW-Nonce': nonce,
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                    'X-Turnstile-Token': turnstileToken.value
+                },
+                body: params.toString(),
+                credentials: 'include',
+                redirect: 'manual'
+            });
+
+            // opaqueredirect = Spring's 302 after successful login
+            if (response.type === 'opaqueredirect' || response.status === 0) {
+                window.location.href = '/';
+            } else if (response.ok) {
+                window.location.href = '/';
+            } else {
+                window.location.href = '/login?error';
+            }
+        } catch (err) {
+            window.location.href = '/login?error';
+        }
+    });
+
+    // BOOT SEQUENCE
+    const bootDiv = document.getElementById('boot-sequence');
+    const mainBox = document.getElementById('main-login');
+    const footer = document.getElementById('footer');
+
+    if (!sessionStorage.getItem('bootPlayed')) {
+        const lines = [
+            "INITIALIZING KERNEL...",
+            "LOADING ENCRYPTION MODULES... OK",
+            "VERIFYING LOCALHOST INTEGRITY... VERIFIED",
+            "ESTABLISHING SECURE CONNECTION...",
+            "HANDSHAKE ACCEPTED. RENDERING UI..."
+        ];
+        let delay = 0;
+        lines.forEach((line) => {
+            setTimeout(() => {
+                bootDiv.innerHTML += `<div>> ${line}</div>`;
+            }, delay);
+            delay += 400;
+        });
+        setTimeout(() => {
+            bootDiv.style.display = 'none';
+            mainBox.style.display = 'block';
+            footer.style.display = 'flex';
+            sessionStorage.setItem('bootPlayed', 'true');
+        }, delay + 500);
+    } else {
+        bootDiv.style.display = 'none';
+        mainBox.style.display = 'block';
+        footer.style.display = 'flex';
+    }
+</script>
+</body>
+</html>

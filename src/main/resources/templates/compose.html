@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00ffcc">
+    <title>ZephyrMail | Compose</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background-color: rgba(10, 10, 12, 0.95); border-right: 1px solid #00ffcc; display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 15px rgba(0, 255, 204, 0.1); }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.5em; text-align: center; margin-bottom: 40px; text-shadow: 0 0 8px rgba(0, 255, 204, 0.5); letter-spacing: 2px; }
+        .nav-item { padding: 15px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; text-decoration: none; color: #00ffcc; display: block; }
+        .nav-item:hover, .nav-item.active { border: 1px solid #00ffcc; background-color: rgba(0, 255, 204, 0.1); }
+        .logout-btn { margin-top: auto; padding: 15px; background-color: rgba(255, 51, 51, 0.1); color: #ff3333; border: 1px solid #ff3333; text-align: center; cursor: pointer; text-decoration: none; font-weight: bold; transition: all 0.2s; }
+        .logout-btn:hover { background-color: #ff3333; color: #050505; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
+        .main-content { flex-grow: 1; padding: 30px; display: flex; flex-direction: column; overflow-y: auto; background-image: linear-gradient(rgba(0, 255, 204, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 204, 0.02) 1px, transparent 1px); background-size: 40px 40px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+        .module-container { flex-grow: 1; border: 1px solid #333; background-color: rgba(10, 10, 12, 0.8); padding: 20px; margin-bottom: 20px; }
+        label { font-size: 0.8em; letter-spacing: 1px; display: block; margin-bottom: 5px; color: #555; }
+        input[type="text"], textarea { width: 100%; padding: 12px; background-color: #050505; border: 1px solid #333; color: #00ffcc; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; transition: border 0.3s; margin-bottom: 15px; }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #00ffcc; box-shadow: 0 0 8px rgba(0, 255, 204, 0.2); }
+        textarea { height: 300px; resize: vertical; }
+        .btn-row { display: flex; gap: 15px; margin-top: 10px; }
+        button { padding: 12px 25px; background-color: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.2s; }
+        button:hover { background-color: #00ffcc; color: #050505; box-shadow: 0 0 10px rgba(0, 255, 204, 0.4); }
+        .btn-cancel { background-color: rgba(255, 51, 51, 0.1); border-color: #ff3333; color: #ff3333; }
+        .btn-cancel:hover { background-color: #ff3333; color: #050505; }
+        .toggle-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .toggle-link { font-size: 0.8em; color: #555; cursor: pointer; text-decoration: underline; }
+        .toggle-link:hover { color: #00ffcc; }
+        .extra-field { display: none; }
+        .leak-warning { background-color: rgba(255, 51, 51, 0.1); border: 1px solid #ff3333; padding: 15px; margin-bottom: 20px; color: #ff3333; }
+        .autosave-status { font-size: 0.7em; color: #555; margin-left: auto; }
+        .undo-bar { display: none; background-color: rgba(255, 204, 0, 0.1); border: 1px solid #ffcc00; padding: 12px 20px; margin-bottom: 15px; color: #ffcc00; justify-content: space-between; align-items: center; }
+        .undo-bar.active { display: flex; }
+        .btn-undo { padding: 8px 16px; background-color: rgba(255, 204, 0, 0.2); border: 1px solid #ffcc00; color: #ffcc00; cursor: pointer; font-family: 'Orbitron', sans-serif; font-size: 0.8em; }
+        .btn-undo:hover { background-color: #ffcc00; color: #050505; }
+        .autocomplete-list { position: absolute; z-index: 100; background-color: #0a0a0c; border: 1px solid #333; width: 100%; max-height: 150px; overflow-y: auto; }
+        .autocomplete-item { padding: 10px 12px; cursor: pointer; font-size: 0.9em; border-bottom: 1px solid #1a1a1a; }
+        .autocomplete-item:hover { background-color: rgba(0, 255, 204, 0.1); color: #00ffcc; }
+        .to-wrapper { position: relative; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">ZephyrMail</div>
+    <a th:href="@{/inbox}" class="nav-item">INBOX</a>
+    <a th:href="@{/compose}" class="nav-item active">COMPOSE</a>
+    <a th:href="@{/contacts}" class="nav-item">CONTACTS</a>
+    <a th:href="@{/aliases}" class="nav-item">ALIASES</a>
+    <a th:href="@{/vault}" class="nav-item">VAULT</a>
+    <a th:href="@{/settings}" class="nav-item">SETTINGS</a>
+    <a th:href="@{/logout}" class="logout-btn">TERMINATE SESSION</a>
+</div>
+
+<div class="main-content">
+    <div class="header-bar">
+        <h2>> COMPOSE: NEW TRANSMISSION</h2>
+        <span class="autosave-status" id="autosaveStatus">[AUTOSAVE: STANDBY]</span>
+    </div>
+
+    <div id="undoBar" class="undo-bar">
+        <span>TRANSMISSION QUEUED — SENDING IN <span id="undoCountdown">10</span>s</span>
+        <button class="btn-undo" onclick="cancelSend()">CANCEL</button>
+    </div>
+
+    <div th:if="${leakWarnings}" class="leak-warning">
+        <strong>[!] DATA LEAK RADAR: SENSITIVE CONTENT DETECTED</strong>
+        <ul th:each="warning : ${leakWarnings}">
+            <li th:text="${warning}"></li>
+        </ul>
+        <p style="margin-bottom: 0;">Review your message before sending.</p>
+    </div>
+
+    <input type="hidden" id="leakWarningActive"
+           th:value="${leakWarningActive != null and leakWarningActive} ? 'true' : 'false'">
+
+    <div class="module-container">
+        <form th:action="@{/compose/send}" method="POST" id="composeForm">
+
+            <label>TO</label>
+            <div class="to-wrapper">
+                <input type="text" name="to" id="toField"
+                       th:value="${draft_to}" required autocomplete="off"
+                       onkeyup="searchContacts(this.value)">
+                <div class="autocomplete-list" id="autocompleteList" style="display:none;"></div>
+            </div>
+
+            <div class="toggle-row">
+                <span class="toggle-link" onclick="toggleField('ccRow')">+ CC</span>
+                <span class="toggle-link" onclick="toggleField('bccRow')">+ BCC</span>
+            </div>
+
+            <div class="extra-field" id="ccRow">
+                <label>CC</label>
+                <input type="text" name="cc">
+            </div>
+
+            <div class="extra-field" id="bccRow">
+                <label>BCC</label>
+                <input type="text" name="bcc">
+            </div>
+
+            <label>SUBJECT</label>
+            <input type="text" name="subject" th:value="${draft_subject}">
+
+            <label>MESSAGE</label>
+            <textarea name="body" id="bodyField" th:text="${draft_body}"></textarea>
+
+            <div class="btn-row">
+                <button type="submit" id="transmitBtn">TRANSMIT</button>
+                <a th:href="@{/inbox}">
+                    <button type="button" class="btn-cancel">ABORT</button>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const leakWarningActive = document.getElementById('leakWarningActive').value === 'true';
+
+    // CSRF
+    function getCsrfToken() {
+        const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    // CONTACT AUTOCOMPLETE
+    let autocompleteTimeout = null;
+
+    function searchContacts(query) {
+        clearTimeout(autocompleteTimeout);
+        const list = document.getElementById('autocompleteList');
+        if (query.length < 2) { list.style.display = 'none'; return; }
+        autocompleteTimeout = setTimeout(() => {
+            fetch('/contacts/search?query=' + encodeURIComponent(query))
+                .then(res => res.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const rows = doc.querySelectorAll('#contactTable tbody tr');
+                    list.innerHTML = '';
+                    if (rows.length === 0) { list.style.display = 'none'; return; }
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length >= 2) {
+                            const email = cells[0].innerText.trim();
+                            const name = cells[1].innerText.trim();
+                            const item = document.createElement('div');
+                            item.className = 'autocomplete-item';
+                            item.innerText = name ? name + ' <' + email + '>' : email;
+                            item.onclick = () => { document.getElementById('toField').value = email; list.style.display = 'none'; };
+                            list.appendChild(item);
+                        }
+                    });
+                    list.style.display = rows.length > 0 ? 'block' : 'none';
+                })
+                .catch(() => { list.style.display = 'none'; });
+        }, 300);
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.to-wrapper')) {
+            document.getElementById('autocompleteList').style.display = 'none';
+        }
+    });
+
+    // UNDO SEND
+    let undoQueueId = null;
+    let undoInterval = null;
+
+    document.getElementById('composeForm').addEventListener('submit', function(e) {
+        const toField = document.getElementById('toField').value;
+        const body = document.getElementById('bodyField').value;
+        if (!toField || !body) return;
+        if (leakWarningActive) return;
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('/api/draft/autosave', {
+            method: 'POST',
+            headers: { 'X-XSRF-TOKEN': getCsrfToken() },
+            body: formData
+        }).then(res => res.json())
+            .then(data => { undoQueueId = data.id; startUndoCountdown(); })
+            .catch(() => { this.submit(); });
+    });
+
+    function startUndoCountdown() {
+        const bar = document.getElementById('undoBar');
+        const countEl = document.getElementById('undoCountdown');
+        let seconds = 10;
+        bar.classList.add('active');
+        countEl.innerText = seconds;
+        undoInterval = setInterval(() => {
+            seconds--;
+            countEl.innerText = seconds;
+            if (seconds <= 0) {
+                clearInterval(undoInterval);
+                bar.classList.remove('active');
+                document.getElementById('composeForm').submit();
+            }
+        }, 1000);
+    }
+
+    function cancelSend() {
+        clearInterval(undoInterval);
+        document.getElementById('undoBar').classList.remove('active');
+        if (undoQueueId) {
+            fetch('/api/draft/cancel/' + undoQueueId, {
+                method: 'POST',
+                headers: { 'X-XSRF-TOKEN': getCsrfToken() }
+            });
+            undoQueueId = null;
+        }
+    }
+
+    // TOGGLE CC/BCC
+    function toggleField(id) {
+        const el = document.getElementById(id);
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // AUTOSAVE
+    setInterval(function() {
+        if (leakWarningActive) return;
+        const form = document.getElementById('composeForm');
+        const data = new FormData(form);
+        const status = document.getElementById('autosaveStatus');
+        fetch('/api/draft/autosave', {
+            method: 'POST',
+            headers: { 'X-XSRF-TOKEN': getCsrfToken() },
+            body: data
+        }).then(response => {
+            if (response.ok) {
+                status.innerText = '[AUTOSAVE: OK — ' + new Date().toLocaleTimeString() + ']';
+            }
+        }).catch(() => { status.innerText = '[AUTOSAVE: FAILED]'; });
+    }, 30000);
+</script>
+
+</body>
+</html>
