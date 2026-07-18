@@ -13,7 +13,9 @@
     <style>
         body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .sidebar { width: 250px; background-color: rgba(10, 10, 12, 0.95); border-right: 1px solid #00ffcc; display: flex; flex-direction: column; padding: 20px; box-shadow: 2px 0 15px rgba(0, 255, 204, 0.1); }
-        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.5em; text-align: center; margin-bottom: 40px; text-shadow: 0 0 8px rgba(0, 255, 204, 0.5); letter-spacing: 2px; }
+        .sidebar-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; }
+        .logo-img { width: 40px; height: 40px; margin-bottom: 8px; filter: drop-shadow(0 0 6px rgba(0, 255, 204, 0.5)); }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.5em; text-align: center; text-shadow: 0 0 8px rgba(0, 255, 204, 0.5); letter-spacing: 2px; }
         .nav-item { padding: 15px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; text-decoration: none; color: #00ffcc; display: block; }
         .nav-item:hover, .nav-item.active { border: 1px solid #00ffcc; background-color: rgba(0, 255, 204, 0.1); }
         .logout-btn { margin-top: auto; padding: 15px; background-color: rgba(255, 51, 51, 0.1); color: #ff3333; border: 1px solid #ff3333; text-align: center; cursor: pointer; text-decoration: none; font-weight: bold; transition: all 0.2s; }
@@ -49,7 +51,10 @@
 <body>
 
 <div class="sidebar">
-    <div class="logo">ZephyrMail</div>
+    <div class="sidebar-logo-wrap">
+        <img src="/icons/icon-192.png" alt="ZephyrMail" class="logo-img">
+        <div class="logo">ZephyrMail</div>
+    </div>
     <a th:href="@{/inbox}" class="nav-item">INBOX</a>
     <a th:href="@{/compose}" class="nav-item active">COMPOSE</a>
     <a th:href="@{/contacts}" class="nav-item">CONTACTS</a>
@@ -70,6 +75,11 @@
         <button class="btn-undo" onclick="cancelSend()">CANCEL</button>
     </div>
 
+    <div th:if="${addressError}" class="leak-warning">
+        <strong>[!] INVALID RECIPIENT ADDRESS</strong>
+        <p th:text="${addressError}" style="margin-bottom: 0;"></p>
+    </div>
+
     <div th:if="${leakWarnings}" class="leak-warning">
         <strong>[!] DATA LEAK RADAR: SENSITIVE CONTENT DETECTED</strong>
         <ul th:each="warning : ${leakWarnings}">
@@ -83,6 +93,7 @@
 
     <div class="module-container">
         <form th:action="@{/compose/send}" method="POST" id="composeForm">
+            <input type="hidden" name="draftId" id="draftIdField" value="">
 
             <label>TO</label>
             <div class="to-wrapper">
@@ -188,7 +199,11 @@
             headers: { 'X-XSRF-TOKEN': getCsrfToken() },
             body: formData
         }).then(res => res.json())
-            .then(data => { undoQueueId = data.id; startUndoCountdown(); })
+            .then(data => {
+                undoQueueId = data.id;
+                document.getElementById('draftIdField').value = data.id;
+                startUndoCountdown();
+            })
             .catch(() => { this.submit(); });
     });
 
@@ -240,7 +255,10 @@
         }).then(response => {
             if (response.ok) {
                 status.innerText = '[AUTOSAVE: OK — ' + new Date().toLocaleTimeString() + ']';
+                return response.json();
             }
+        }).then(saved => {
+            if (saved) document.getElementById('draftIdField').value = saved.id;
         }).catch(() => { status.innerText = '[AUTOSAVE: FAILED]'; });
     }, 30000);
 </script>

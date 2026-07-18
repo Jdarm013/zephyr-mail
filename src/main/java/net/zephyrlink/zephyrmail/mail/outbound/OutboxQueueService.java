@@ -48,15 +48,44 @@ public class OutboxQueueService {
         return queue(owner, recipient, cc, bcc, subject, body, sendAt);
     }
 
-    public boolean cancel(Long queueId) {
-        Optional<OutboxQueue> entry = outboxQueueRepository.findById(queueId);
-        if (entry.isPresent() && entry.get().getStatus() == OutboxQueue.QueueStatus.PENDING) {
+    // Upserts a single DRAFT row per compose session instead of creating a new one on
+    // every autosave tick. DRAFT status keeps it out of processQueue()'s PENDING scan,
+    // so unlike PENDING/queueWithUndoWindow entries it never needs a real scheduledAt.
+    public OutboxQueue saveDraft(User owner, Long draftId, String recipient, String cc,
+                                 String bcc, String subject, String body) {
+        OutboxQueue entry = null;
+        if (draftId != null) {
+            entry = outboxQueueRepository.findByIdAndOwner(draftId, owner)
+                    .filter(e -> e.getStatus() == OutboxQueue.QueueStatus.DRAFT)
+                    .orElse(null);
+        }
+        if (entry == null) {
+            entry = new OutboxQueue();
+            entry.setOwner(owner);
+            entry.setStatus(OutboxQueue.QueueStatus.DRAFT);
+            entry.setScheduledAt(LocalDateTime.now());
+        }
+        entry.setRecipientAddress(recipient);
+        entry.setCcAddresses(cc);
+        entry.setBccAddresses(bcc);
+        entry.setSubject(subject);
+        entry.setBody(body);
+        return outboxQueueRepository.save(entry);
+    }
+
+    // Owner-scoped: a draft/pending id belonging to another user can never be cancelled.
+    public boolean cancel(Long queueId, User owner) {
+        Optional<OutboxQueue> entry = outboxQueueRepository.findByIdAndOwner(queueId, owner);
+        if (entry.isPresent() && (entry.get().getStatus() == OutboxQueue.QueueStatus.PENDING
+                || entry.get().getStatus() == OutboxQueue.QueueStatus.DRAFT)) {
             entry.get().setStatus(OutboxQueue.QueueStatus.CANCELLED);
             outboxQueueRepository.save(entry.get());
             return true;
         }
         return false;
     }
+
+    private static final int MAX_DISPATCH_ATTEMPTS = 5;
 
     @Scheduled(fixedDelay = 5000)
     @Transactional
@@ -72,12 +101,22 @@ public class OutboxQueueService {
                 outboxQueueRepository.save(entry);
                 saveSentCopy(entry);
             } else {
-                System.err.println("DISPATCH FAILED — keeping in queue for retry: " + entry.getId());
+                entry.setAttemptCount(entry.getAttemptCount() + 1);
+                if (entry.getAttemptCount() >= MAX_DISPATCH_ATTEMPTS) {
+                    entry.setStatus(OutboxQueue.QueueStatus.FAILED);
+                    outboxQueueRepository.save(entry);
+                    System.err.println("DISPATCH FAILED — giving up after " + entry.getAttemptCount()
+                            + " attempts: " + entry.getId());
+                } else {
+                    outboxQueueRepository.save(entry);
+                    System.err.println("DISPATCH FAILED — attempt " + entry.getAttemptCount()
+                            + "/" + MAX_DISPATCH_ATTEMPTS + ", keeping in queue for retry: " + entry.getId());
+                }
             }
         }
     }
 
-    // Purge dispatched and cancelled entries older than 30 days — runs every Sunday at 3:30 AM
+    // Purge dispatched, cancelled, and permanently-failed entries older than 30 days — runs every Sunday at 3:30 AM
     @Scheduled(cron = "0 30 3 * * SUN")
     @Transactional
     public void purgeStaleEntries() {
@@ -85,7 +124,9 @@ public class OutboxQueueService {
         List<OutboxQueue> stale = outboxQueueRepository
                 .findByStatusInAndCreatedAtBefore(
                         List.of(OutboxQueue.QueueStatus.DISPATCHED,
-                                OutboxQueue.QueueStatus.CANCELLED),
+                                OutboxQueue.QueueStatus.CANCELLED,
+                                OutboxQueue.QueueStatus.FAILED,
+                                OutboxQueue.QueueStatus.DRAFT),
                         cutoff);
         outboxQueueRepository.deleteAll(stale);
     }

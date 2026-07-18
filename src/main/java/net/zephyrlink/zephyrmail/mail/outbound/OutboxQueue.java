@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public class OutboxQueue {
 
     public enum QueueStatus {
-        PENDING, DISPATCHED, CANCELLED
+        PENDING, DISPATCHED, CANCELLED, FAILED, DRAFT
     }
 
     @Id
@@ -46,6 +46,9 @@ public class OutboxQueue {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int attemptCount = 0;
 
     public OutboxQueue() {
         this.createdAt = LocalDateTime.now();
@@ -83,4 +86,7 @@ public class OutboxQueue {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public int getAttemptCount() { return attemptCount; }
+    public void setAttemptCount(int attemptCount) { this.attemptCount = attemptCount; }
 }

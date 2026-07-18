@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @RestController
@@ -31,6 +30,7 @@ public class DraftApiController {
 
     @PostMapping("/autosave")
     public ResponseEntity<?> autosave(
+            @RequestParam(required = false) Long draftId,
             @RequestParam(required = false) String to,
             @RequestParam(required = false) String cc,
             @RequestParam(required = false) String bcc,
@@ -47,15 +47,16 @@ public class DraftApiController {
         String safeSubject = (subject != null) ? subject : "";
         String safeBody    = (body    != null) ? body    : "";
 
-        OutboxQueue saved = outboxQueueService.queue(user, safeTo, safeCc, safeBcc,
-                safeSubject, safeBody, LocalDateTime.now().plusYears(1));
+        OutboxQueue saved = outboxQueueService.saveDraft(user, draftId, safeTo, safeCc, safeBcc,
+                safeSubject, safeBody);
 
         return ResponseEntity.ok(Map.of("id", saved.getId()));
     }
 
     @PostMapping("/cancel/{id}")
-    public ResponseEntity<?> cancel(@PathVariable Long id) {
-        boolean cancelled = outboxQueueService.cancel(id);
+    public ResponseEntity<?> cancel(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.findActiveByEmail(userDetails.getUsername()).orElseThrow();
+        boolean cancelled = outboxQueueService.cancel(id, user);
         return cancelled ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
     }
 }

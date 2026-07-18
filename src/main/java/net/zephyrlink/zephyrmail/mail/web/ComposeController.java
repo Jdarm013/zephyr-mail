@@ -15,10 +15,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Controller
 @RequestMapping("/compose")
 public class ComposeController {
+
+    // Deliberately simple, practical shape check — not full RFC 5322. Its job is to catch
+    // obvious typos (a missing "@", no domain) before we silently queue an address that can
+    // never be delivered; Resend's own relay is still the real validator.
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final OutboxQueueService outboxQueueService;
     private final UserService userService;
@@ -43,8 +49,18 @@ public class ComposeController {
                        @RequestParam(required = false) String bcc,
                        @RequestParam String subject,
                        @RequestParam String body,
+                       @RequestParam(required = false) Long draftId,
                        @AuthenticationPrincipal UserDetails userDetails,
                        RedirectAttributes redirectAttributes) {
+
+        if (!EMAIL_PATTERN.matcher(to.trim()).matches()) {
+            redirectAttributes.addFlashAttribute("addressError",
+                    "\"" + to + "\" doesn't look like a valid email address — check for a missing @ or domain.");
+            redirectAttributes.addFlashAttribute("draft_to", to);
+            redirectAttributes.addFlashAttribute("draft_subject", subject);
+            redirectAttributes.addFlashAttribute("draft_body", body);
+            return "redirect:/compose";
+        }
 
         List<String> leaks = dataLeakRadar.scan(body);
         if (!leaks.isEmpty()) {
@@ -58,6 +74,9 @@ public class ComposeController {
 
         User user = userService.findActiveByEmail(userDetails.getUsername()).orElseThrow();
         outboxQueueService.queueWithUndoWindow(user, to, cc, bcc, subject, body);
+        if (draftId != null) {
+            outboxQueueService.cancel(draftId, user);
+        }
         return "redirect:/inbox";
     }
 }
