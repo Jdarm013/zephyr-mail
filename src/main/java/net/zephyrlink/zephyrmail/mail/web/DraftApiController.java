@@ -59,4 +59,11 @@ public class DraftApiController {
         boolean cancelled = outboxQueueService.cancel(id, user);
         return cancelled ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
     }
+
+    @PostMapping("/dismiss/{id}")
+    public ResponseEntity<?> dismiss(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.findActiveByEmail(userDetails.getUsername()).orElseThrow();
+        boolean dismissed = outboxQueueService.dismissFailed(id, user);
+        return dismissed ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
+    }
 }

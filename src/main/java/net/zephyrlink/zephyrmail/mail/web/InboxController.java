@@ -3,6 +3,7 @@ package net.zephyrlink.zephyrmail.mail.web;
 import net.zephyrlink.zephyrmail.mail.Email;
 import net.zephyrlink.zephyrmail.user.User;
 import net.zephyrlink.zephyrmail.mail.EmailRepository;
+import net.zephyrlink.zephyrmail.mail.outbound.OutboxQueueService;
 import net.zephyrlink.zephyrmail.user.UserService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,11 +21,14 @@ public class InboxController {
 
     private final EmailRepository emailRepository;
     private final UserService userService;
+    private final OutboxQueueService outboxQueueService;
 
     public InboxController(EmailRepository emailRepository,
-                           UserService userService) {
+                           UserService userService,
+                           OutboxQueueService outboxQueueService) {
         this.emailRepository = emailRepository;
         this.userService = userService;
+        this.outboxQueueService = outboxQueueService;
     }
 
     @GetMapping
@@ -34,6 +38,7 @@ public class InboxController {
                 user, Email.EmailState.INBOX);
         model.addAttribute("emails", emails);
         model.addAttribute("user", user);
+        model.addAttribute("failedSends", outboxQueueService.getFailedByOwner(user));
         return "user-inbox";
     }
 
@@ -54,6 +59,7 @@ public class InboxController {
         model.addAttribute("emails", emails);
         model.addAttribute("folder", state);
         model.addAttribute("user", user);
+        model.addAttribute("failedSends", outboxQueueService.getFailedByOwner(user));
         return "user-inbox";
     }
 }

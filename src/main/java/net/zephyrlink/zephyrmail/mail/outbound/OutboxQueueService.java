@@ -148,4 +148,20 @@ public class OutboxQueueService {
         return outboxQueueRepository.findByOwnerAndStatusOrderByCreatedAtDesc(
                 owner, OutboxQueue.QueueStatus.PENDING);
     }
+
+    public List<OutboxQueue> getFailedByOwner(User owner) {
+        return outboxQueueRepository.findByOwnerAndStatusOrderByCreatedAtDesc(
+                owner, OutboxQueue.QueueStatus.FAILED);
+    }
+
+    // The sender's only signal that a message never went out — deleted once acknowledged
+    // rather than left to the 30-day purge, since its job is done once the user has seen it.
+    public boolean dismissFailed(Long queueId, User owner) {
+        Optional<OutboxQueue> entry = outboxQueueRepository.findByIdAndOwner(queueId, owner);
+        if (entry.isPresent() && entry.get().getStatus() == OutboxQueue.QueueStatus.FAILED) {
+            outboxQueueRepository.delete(entry.get());
+            return true;
+        }
+        return false;
+    }
 }
